@@ -33,7 +33,7 @@ struct ContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Claude Code Usage")
+            Text("Claude Usage Quota")
                 .font(.headline)
 
             if let snap = store.snapshot {

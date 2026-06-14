@@ -5,7 +5,7 @@ struct ClaudeUsageBarApp: App {
     @StateObject private var store = UsageStore()
 
     var body: some Scene {
-        MenuBarExtra("Claude Code Usage", systemImage: "gauge.with.dots.needle.33percent") {
+        MenuBarExtra("Claude Usage Quota", systemImage: "gauge.with.dots.needle.33percent") {
             ContentView(store: store)
         }
         .menuBarExtraStyle(.window)
