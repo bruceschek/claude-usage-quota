@@ -1,9 +1,10 @@
 import SwiftUI
+import ServiceManagement
 
 private func barColor(forRemaining pct: Double) -> Color {
     switch pct {
     case 50...: return .green
-    case 20..<50: return .yellow
+    case 20..<50: return .orange
     default: return .red
     }
 }
@@ -60,6 +61,7 @@ private struct TrackedBar: View {
 struct ContentView: View {
     @ObservedObject var store: UsageStore
     @AppStorage("showPercentInBar") private var showPercentInBar = false
+    @State private var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -78,6 +80,21 @@ struct ContentView: View {
                 .font(.caption)
                 .toggleStyle(.checkbox)
                 .padding(.top, 2)
+            Toggle("Launch at login", isOn: $launchAtLogin)
+                .font(.caption)
+                .toggleStyle(.checkbox)
+                .onChange(of: launchAtLogin) { _, newValue in
+                    do {
+                        if newValue {
+                            try SMAppService.mainApp.register()
+                        } else {
+                            try SMAppService.mainApp.unregister()
+                        }
+                    } catch {
+                        // Revert to the real state if registration failed.
+                        launchAtLogin = SMAppService.mainApp.status == .enabled
+                    }
+                }
         }
         .padding(16)
         .frame(width: 280)

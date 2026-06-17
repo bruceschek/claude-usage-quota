@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Build ClaudeUsageBar and assemble a proper .app bundle (menu-bar-only).
 #
-#   ./build.sh           # release build -> ./ClaudeUsageBar.app
-#   ./build.sh --run     # build, then (re)launch the app
+#   ./build.sh             # release build -> ./ClaudeUsageBar.app
+#   ./build.sh --run       # build, then (re)launch from the project folder
+#   ./build.sh --install   # build, copy to ~/Applications/, relaunch from there
+#                          # (required for Launch at Login to work reliably)
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -10,6 +12,7 @@ cd "$(dirname "$0")"
 APP="ClaudeUsageBar"
 BUNDLE="$APP.app"
 CONFIG="release"
+INSTALL_DIR="$HOME/Applications"
 
 echo "==> Compiling ($CONFIG)…"
 swift build -c "$CONFIG"
@@ -26,7 +29,20 @@ codesign --force --sign - "$BUNDLE" >/dev/null 2>&1 || true
 
 echo "==> Built $BUNDLE"
 
-if [[ "${1:-}" == "--run" ]]; then
+if [[ "${1:-}" == "--install" ]]; then
+    mkdir -p "$INSTALL_DIR"
+    echo "==> Installing to $INSTALL_DIR/$BUNDLE…"
+    pkill -x "$APP" 2>/dev/null || true
+    sleep 0.3
+    rm -rf "$INSTALL_DIR/$BUNDLE"
+    cp -R "$BUNDLE" "$INSTALL_DIR/$BUNDLE"
+    echo "==> Launching from $INSTALL_DIR…"
+    open "$INSTALL_DIR/$BUNDLE"
+    echo ""
+    echo "    Installed at: $INSTALL_DIR/$BUNDLE"
+    echo "    You can now tick 'Launch at login' in the panel."
+    echo "    To update: run ./build.sh --install again."
+elif [[ "${1:-}" == "--run" ]]; then
     echo "==> Relaunching…"
     pkill -x "$APP" 2>/dev/null || true
     sleep 0.3
