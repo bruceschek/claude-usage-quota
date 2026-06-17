@@ -47,8 +47,6 @@ struct ContentView: View {
         }
         .padding(16)
         .frame(width: 280)
-        .onAppear { store.start() }
-        .onDisappear { store.stop() }
     }
 
     @ViewBuilder
@@ -58,10 +56,10 @@ struct ContentView: View {
         // 1. Time remaining in current 5-hour window
         if let five = snap.fiveHour {
             MetricRow(
-                title: "5-hour window resets in",
-                value: five.hasResetSince(now: now) ? "reset" : formatCountdown(five.timeRemaining(now: now)),
+                title: five.hasResetSince(now: now) ? "5-hour window" : "5-hour window resets in",
+                value: five.hasResetSince(now: now) ? "ready" : formatCountdown(five.timeRemaining(now: now)),
                 percent: nil,
-                tag: five.hasResetSince(now: now) ? "window rolled over" : nil
+                tag: five.hasResetSince(now: now) ? "already reset" : nil
             )
 
             // 2. 5-hour usage remaining

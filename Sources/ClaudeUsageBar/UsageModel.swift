@@ -64,9 +64,12 @@ final class UsageStore: ObservableObject {
     init() {
         loadFromDefaults()
         reload()
+        // Tick continuously so the menu bar icon stays live even while the panel
+        // is closed.
+        start()
     }
 
-    /// Begin ticking. Call when the panel appears.
+    /// Begin ticking.
     func start() {
         stop()
         let t = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
