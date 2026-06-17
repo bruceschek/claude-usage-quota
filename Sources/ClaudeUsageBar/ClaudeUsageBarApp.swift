@@ -61,11 +61,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let remaining = mostConstrainedRemaining(snap, now: now) {
             let cfg = NSImage.SymbolConfiguration(paletteColors: [Self.iconColor(remaining: remaining)])
             button.image = image?.withSymbolConfiguration(cfg)
-            button.image?.isTemplate = false   // keep our color
+            button.image?.isTemplate = false
         } else {
-            // No reading yet — neutral glyph that adapts to the menu bar.
             button.image = image
             button.image?.isTemplate = true
+        }
+
+        // Optionally show the 5h % remaining as an integer next to the icon.
+        // Reads the same UserDefaults key the ContentView checkbox writes to.
+        if UserDefaults.standard.bool(forKey: "showPercentInBar"),
+           let five = snap?.fiveHour {
+            let pct = Int(five.remainingPercentage(now: now).rounded())
+            button.title = " \(pct)%"
+            button.imagePosition = .imageLeading
+        } else {
+            button.title = ""
+            button.imagePosition = .imageOnly
         }
     }
 

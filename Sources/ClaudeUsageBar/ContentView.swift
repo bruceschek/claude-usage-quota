@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Color ramp shared by the bars: lots left = green, getting low = amber, near
-/// empty = red.
 private func barColor(forRemaining pct: Double) -> Color {
     switch pct {
     case 50...: return .green
@@ -28,8 +26,40 @@ private func formatAge(_ seconds: TimeInterval) -> String {
     return "\(total / 86_400)d ago"
 }
 
+/// Progress bar with an optional tick mark showing expected proportional usage.
+/// Tick position = fraction of the window's time still remaining, so if 40% of
+/// the window has elapsed the tick sits at the 60% mark. Fill to the right of
+/// the tick means you're under-pacing (good); fill to the left means over-pacing.
+private struct TrackedBar: View {
+    let actual: Double       // 0–100 remaining %, drives the fill
+    var expected: Double? = nil  // 0–100 expected remaining at this point in time
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.secondary.opacity(0.2))
+                Capsule()
+                    .fill(color)
+                    .frame(width: geo.size.width * CGFloat(actual / 100))
+                if let exp = expected {
+                    // Tick: clamped so it never clips outside the track bounds.
+                    let x = max(0, min(geo.size.width - 2, geo.size.width * CGFloat(exp / 100) - 1))
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.75))
+                        .frame(width: 2)
+                        .offset(x: x)
+                }
+            }
+        }
+        .frame(height: 6)
+    }
+}
+
 struct ContentView: View {
     @ObservedObject var store: UsageStore
+    @AppStorage("showPercentInBar") private var showPercentInBar = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -44,6 +74,10 @@ struct ContentView: View {
 
             Divider()
             footer
+            Toggle("Show 5 hr % in menu bar", isOn: $showPercentInBar)
+                .font(.caption)
+                .toggleStyle(.checkbox)
+                .padding(.top, 2)
         }
         .padding(16)
         .frame(width: 280)
@@ -52,9 +86,15 @@ struct ContentView: View {
     @ViewBuilder
     private func metrics(for snap: UsageSnapshot) -> some View {
         let now = store.now
+        let fiveHourTotal: Double = 5 * 3600
+        let weekTotal: Double = 7 * 24 * 3600
 
-        // 1. Time remaining in current 5-hour window
         if let five = snap.fiveHour {
+            let fiveLeft = five.remainingPercentage(now: now)
+            // Expected: if usage tracked time linearly, remaining % = time remaining %.
+            let fiveExpected: Double? = five.hasResetSince(now: now) ? nil
+                : max(0, min(100, five.timeRemaining(now: now) / fiveHourTotal * 100))
+
             MetricRow(
                 title: five.hasResetSince(now: now) ? "5-hour window" : "5-hour window resets in",
                 value: five.hasResetSince(now: now) ? "ready" : formatCountdown(five.timeRemaining(now: now)),
@@ -62,23 +102,25 @@ struct ContentView: View {
                 tag: five.hasResetSince(now: now) ? "already reset" : nil
             )
 
-            // 2. 5-hour usage remaining
-            let fiveLeft = five.remainingPercentage(now: now)
             MetricRow(
                 title: "5-hour usage left",
                 value: "\(Int(fiveLeft.rounded()))%",
                 percent: fiveLeft,
+                expectedPercent: fiveExpected,
                 tag: five.hasResetSince(now: now) ? "after reset" : nil
             )
         }
 
-        // 3. Weekly usage remaining
         if let week = snap.sevenDay {
             let weekLeft = week.remainingPercentage(now: now)
+            let weekExpected: Double? = week.hasResetSince(now: now) ? nil
+                : max(0, min(100, week.timeRemaining(now: now) / weekTotal * 100))
+
             MetricRow(
                 title: "Weekly usage left",
                 value: "\(Int(weekLeft.rounded()))%",
                 percent: weekLeft,
+                expectedPercent: weekExpected,
                 tag: week.hasResetSince(now: now) ? "after reset" : nil
             )
         }
@@ -116,11 +158,11 @@ struct ContentView: View {
     }
 }
 
-/// A title, a big value, an optional progress bar, and an optional inferred tag.
 private struct MetricRow: View {
     let title: String
     let value: String
-    let percent: Double?   // remaining %, drives the bar + color
+    let percent: Double?
+    var expectedPercent: Double? = nil
     var tag: String? = nil
 
     var body: some View {
@@ -136,20 +178,22 @@ private struct MetricRow: View {
                         .foregroundStyle(.tertiary)
                 }
             }
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
                 Text(value)
                     .font(.title2.weight(.semibold).monospacedDigit())
                     .foregroundStyle(percent.map(barColor(forRemaining:)) ?? .primary)
                 if let percent {
-                    ProgressView(value: percent, total: 100)
-                        .tint(barColor(forRemaining: percent))
+                    TrackedBar(
+                        actual: percent,
+                        expected: expectedPercent,
+                        color: barColor(forRemaining: percent)
+                    )
                 }
             }
         }
     }
 }
 
-/// Tighter spacing between the status dot and its text than the default Label.
 private struct DotLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: 5) {
